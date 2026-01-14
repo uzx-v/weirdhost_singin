@@ -49,26 +49,30 @@ jobs:
           name: error-screenshots # 上传后的文件包名称
           path: "*.png" # 上传所有以 .png 结尾的文件
 
-      - name: Commit time.txt to repo
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Update README with timestamp
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # 如果 time.txt 不存在，说明是第一次运行
-          if [ ! -f time.txt ]; then
-            echo "首次生成时间：$(date +'%Y-%m-%d %H:%M:%S')" > time.txt
-          else
-            echo "$(date +'%Y-%m-%d %H:%M:%S')" > time.txt
+          # 生成当前时间
+          UTC_TIME=$(date -u +'%Y-%m-%d %H:%M:%S')
+          BJ_TIME=$(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')
+          
+          # 在 README 末尾添加或更新时间戳
+          TIMESTAMP_SECTION="\n## 🕒 Bot最后更新时间\n\n"
+          TIMESTAMP_SECTION+="**UTC**: \`$UTC_TIME\`  \n"
+          TIMESTAMP_SECTION+="**北京时间**: \`$BJ_TIME\`  \n\n"
+          TIMESTAMP_SECTION+="> ⚡ 此时间戳由 GitHub Actions 自动更新\n"
+          
+          # 检查是否已经有时间戳部分
+          if grep -q "## 🕒 Bot最后更新时间" README.md; then
+            sed -i '/## 🕒 最后更新时间/,/^## \|^# /{//!d}' README.md
+            sed -i '/## 🕒 最后更新时间/d' README.md
           fi
-
-          git add time.txt
-
-          # 如果有更改再提交
-          if git diff --cached --quiet; then
-            echo "无变化，无需提交"
-          else
-            git commit -m "?? 更新时间文件: $(date +'%Y-%m-%d %H:%M:%S')"
-            git push origin HEAD:main
-          fi
+          
+          echo -e "$TIMESTAMP_SECTION" >> README.md
+          
+      - name: Auto commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Auto deploy by Github Actions"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
+          file_pattern: README.md
